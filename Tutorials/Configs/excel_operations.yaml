@@ -1,0 +1,256 @@
+project_title: &projectTitle "Excel Operations Test"
+short_title: &shortTitle "excel-ops-test"
+
+
+paths:
+  input:
+    excel: "Tutorials/Excel/tutorial.xlsx"
+    images: "Tutorials/Images"
+
+  output:
+    exif_json: "Tutorials/Output/*projectTitle/EXIF_JSON"
+
+
+column_mapping:
+  file name: filename
+  Sublocation: sublocation
+  location: location
+  province: province
+  country: country
+  header: header
+  description: description
+  author: author
+  author, email adress: author_email
+  copyright information: copyright
+  keywords: keywords
+
+
+column_basevalues:
+  author: author
+  copyright: copyright
+  description: description
+  keywords: keywords
+  sublocation: Location_0
+  location: Location_1
+  province: Location_2
+  country: Location_3
+
+
+zenodo_metadata:
+  upload_type: "image"
+  image_type: "photo"
+  access_right: "open"
+  license: "cc-by-4.0"
+  creators:
+    - name: "Name of Creator"
+  contributors:
+    - name: "Name of Contributor"
+      type: "RightsHolder"
+  imprint_publisher: "Zenodo"
+  initial_version: "0.0.1"
+
+
+title_constructor:
+  separator: "-"
+  pos_0: "filename"
+  pos_1: "description"
+
+
+description_constructor:
+  line_0: "<u>File Name</u>: {filename} <br>"
+  line_1: "<u>Sublocation</u>: {sublocation} <br>"
+  line_2: "<u>Location</u>: {location} <br>"
+  line_3: "<u>Province</u>: {province} <br>"
+  line_4: "<u>Country</u>: {country} <br>"
+  line_5: "<u>Header</u>: {header} <br>"
+  line_6: "<u>Description</u>: {description} <br>"
+  line_7: "<u>Keywords</u>: {keywords} <br><br>"
+  line_8: "<u>Author</u>: {author} <br>"
+  line_9: "<u>Copyright</u>: {copyright} <br>"
+  line_10: "<u>Rightholder's Mail</u>: {author_email} <br>"
+
+
+settings:
+  use_env_api_key: true
+  use_sandbox: true
+  zenodo_api_key: ""
+  zenodo_sandbox_api_key: ""
+  rates_per_minute: 90
+  rates_per_hour: 4750
+
+  retrieve_coordinates: false
+
+  split_authors: false
+  split_description: true
+  split_keywords: true
+
+  add_filetables_to_description: false
+  add_image_metadata_to_description: true
+  add_exif_to_description: true
+  add_space_after_colon_in_author: true
+  remove_copyright_symbol: true
+  remove_mail_from_copyright: true
+
+  upload_exif_json: false
+  upload_metadata_json: false
+  upload_resized_image: false
+  upload_resized_image_only: false
+
+  image_resize:
+    active: true
+    ratio: 1.0
+    use_ratio: false
+    max_dimension_value: 256
+
+
+geolocator:
+  user_agent: "CoordsGetter/0.1 (mail@email.com)"
+  timeout: 2
+  sleep_time: 1
+  max_attempts: 5
+  backoff_factor: 1.5
+  detailed_structured_query: false # adds state & province/county to the query (not recommended due to inconsistencies)
+  reducer_split_by_hyphens: true # splits words by hyphens before reducing strings
+
+
+misc:
+  capitalize_author_substrings: # array|false: capitalizes first letter of these items if they occur in author string
+    - "photo: "
+    - "source: "
+    - "photography: "
+
+  image_extensions:
+    - ".jpg"
+    - ".png"
+
+  split_characters:
+    author:
+      - ";"
+    description:
+      - ";"
+      - "."
+    keywords:
+      - "|"
+      - ";"
+
+  split_exceptions:
+    description:
+      - "[A-Z]\\." # Single uppercase letter followed by a period (e.g., A., B., C.)
+      - "\\d{1,2}\\." # One or two digits followed by a period (for centuries, e.g., 18., 19., 20.)
+      - "etc."
+      - "Inv." # Inventory
+      - "Nr."
+      - "Mr."
+      - "Mrs."
+      - "Ms."
+      - "Mgr."
+      # German Additions
+      - "Jh." # Century (jahrhundert)
+      - "z.B." # for example (zum Beispiel)
+      - "d.h." # that is (das heißt)
+      - "u.a." # among others (unter anderem)
+      - "v.Chr." # before Christ
+      - "n.Chr." # after Christ
+      - "ca." # circa
+      - "ggf." # if applicable (gegebenenfalls)
+      - "inkl." # including
+      - "exkl." # excluding
+      - "bzw." # or rather (beziehungsweise)
+      - "usw." # and so on (und so weiter)
+      - "Dr." # Doctor
+      - "Prof." # Professor
+      - "St." # Saint
+      - "Str." # Street (Straße)
+      - "Bd." # Volume (Band)
+      - "Tel." # Telephone
+      - "Fa." # Company (Firma)
+      - "Co." # Company
+      - "AG." # Corporation (Aktiengesellschaft)
+      - "e.V." # Registered association (eingetragener Verein)
+      - "i.d.R." # usually (in der Regel)
+      - "s.o." # see above (siehe oben)
+      - "s.u." # see below (siehe unten)
+      - "u.U." # under certain circumstances (unter Umständen)
+      - "m.E." # in my opinion (meines Erachtens)
+      - "z.T." # partly (zum Teil)
+      - "u.v.m." # and much more (und vieles mehr)
+      - "o.Ä." # or similar (oder Ähnliches)
+      - "z.Zt." # at the moment (zur Zeit)
+      - "o.g." # above-mentioned (oben genannt)
+      - "u.g." # below-mentioned (unten genannt)
+      # Spanish additions
+      - "Sr." # Señor (Mr.)
+      - "Sra." # Señora (Mrs.)
+      - "Srta." # Señorita (Miss)
+      - "Da." # Doña
+      - "Lic." # Licenciado/a (Bachelor's degree holder)
+      - "Ing." # Ingeniero/a (Engineer)
+      - "Arq." # Arquitecto/a (Architect)
+      - "Dra." # Doctora (Female Doctor)
+      - "Profa." # Profesora (Female Professor)
+      - "Gral." # General
+      - "Cnel." # Coronel (Colonel)
+      - "Tte." # Teniente (Lieutenant)
+      - "Cap." # Capitán (Captain)
+      - "Av." # Avenida (Avenue)
+      - "Pza." # Plaza
+      - "Calle." # Street
+      - "núm." # número (number)
+      - "tel." # teléfono (telephone)
+      - "apdo." # apartado (P.O. Box)
+      - "a.C." # antes de Cristo (B.C.)
+      - "d.C." # después de Cristo (A.D.)
+      - "p.ej." # por ejemplo (for example)
+      - "Ud." # Usted (formal you)
+      - "Uds." # Ustedes (formal you plural)
+      - "S.A." # Sociedad Anónima (Corporation)
+      - "S.L." # Sociedad Limitada (Limited Company)
+      - "Cía." # Compañía (Company)
+      # Italian additions
+      - "Sig." # Signore (Mr.)
+      - "Sig.ra" # Signora (Mrs.)
+      - "Sig.na" # Signorina (Miss)
+      - "Dott." # Dottore (Doctor)
+      - "Dott.ssa" # Dottoressa (Female Doctor)
+      - "Prof." # Professore (Professor)
+      - "Prof.ssa" # Professoressa (Female Professor)
+      - "Ing." # Ingegnere (Engineer)
+      - "Arch." # Architetto (Architect)
+      - "Avv." # Avvocato (Lawyer)
+      - "Geom." # Geometra (Surveyor)
+      - "Rag." # Ragioniere (Accountant)
+      - "Gen." # Generale (General)
+      - "Col." # Colonnello (Colonel)
+      - "Cap." # Capitano (Captain)
+      - "S.p.A." # Società per Azioni (Joint-stock company)
+      - "S.r.l." # Società a responsabilità limitata (Limited liability company)
+      - "p.zza" # piazza (square)
+      - "tel." # telefono (telephone)
+      - "ecc." # eccetera (et cetera)
+      - "a.C." # avanti Cristo (B.C.)
+      - "d.C." # dopo Cristo (A.D.)
+
+      # French additions
+      - "M." # Monsieur (Mr.)
+      - "Mme" # Madame (Mrs.)
+      - "Mlle" # Mademoiselle (Miss)
+      - "Dr" # Docteur (Doctor)
+      - "Pr" # Professeur (Professor)
+      - "Me" # Maître (used for lawyers)
+      - "Mgr" # Monseigneur (Monsignor)
+      - "Gén." # Général (General)
+      - "Col." # Colonel
+      - "Cpt." # Capitaine (Captain)
+      - "Lt." # Lieutenant
+      - "St" # Saint
+      - "Ste" # Sainte (female Saint)
+      - "av." # avenue
+      - "bd." # boulevard
+      - "pl." # place (square)
+      - "tél." # téléphone
+      - "etc." # et cætera
+      - "ex." # exemple (example)
+      - "av. J.-C." # avant Jésus-Christ (B.C.)
+      - "apr. J.-C." # après Jésus-Christ (A.D.)
+      - "S.A." # Société Anonyme (Corporation)
+      - "S.A.R.L." # Société à responsabilité limitée (Limited liability company)

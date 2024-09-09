@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF 
+xmlns:crm="http://www.cidoe-crm.org/rdfs/cidoc_crm_v5.0.2_english_label.rdfs#"
+xmlns:dc="http://purl.org/dc/elements/1.1/" 
+xmlns:dcterms="http://purl.org/dc/terms/"
+xmlns:edm="http://www.europeana.eu/schemas/edm/" 
+xmlns:foaf="http://xmlns.com/foaf/0.1/"
+xmlns:ore="http://www.openarchives.org/ore/terms/" 
+xmlns:owl="http://www.w3.org/2002/07/owl#" 
+xmlns:rdaGr2="http://rdvocab.info/ElementsGr2/"
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" 
+xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+xmlns:skos="http://www.w3.org/2004/02/skos/core#" 
+xmlns:svcs="http://rdfs.org/sioc/services#"
+xmlns:wgs84_pos="http://www.w3.org/2003/01/geo/wgs84_pos#" 
+xmlns:xalan="http://xml.apache.org/xalan"
+>
+ 
+<edm:ProvidedCHO rdf:about="${edm_providedCHO}">
+    <dc:creator>"${dc_creator}"</dc:creator>
+	<dc:description xml:lang="en">"${dc_description}"</dc:description>
+    <dc:format xml:lang="en">${dc_format}</dc:format>
+	<dc:identifier>${dc_identifier}</dc:identifier>
+	<dc:language>${dc_language}</dc:language>
+    <dc:title xml:lang="en">"${dc_title}"</dc:title>
+    <dc:type xml:lang="en">${dc_type}</dc:type>   
+	<dc:subject xml:lang="en">"${dc_subject}"</dc:subject>   
+    <dcterms:created/>
+	<dcterms:isPartOf xml:lang="en">${dc_isPartOf}</dcterms:isPartOf>
+    <dcterms:spatial rdf:resource="${dc_spatial}"/>
+    <dcterms:temporal/>   
+    <edm:type>${edm_type}</edm:type>
+  </edm:ProvidedCHO>
+  
+  <edm:WebResource rdf:about="${edm_webresource}">
+    <dc:creator>"${dc_creator}"</dc:creator>
+    <dc:format xml:lang="en">${dc_format}</dc:format>
+    <dcterms:created>${dcterms_created}</dcterms:created>
+  </edm:WebResource>
+  
+  <edm:Place rdf:about="${edm_place}">
+    <wgs84_pos:lat>"${wgs84_lat}"</wgs84_pos:lat>
+    <wgs84_pos:long>"${wgs84_lon}"</wgs84_pos:long>
+    <skos:prefLabel>"${skos_prefLabel}"</skos:prefLabel>
+  </edm:Place>
+  
+<ore:Aggregation rdf:resource="${ore_aggregation}">
+    <edm:aggregatedCHO rdf:resource="${edm_aggregatedCHO}"/>
+    <edm:dataProvider>"${edm_dataProvider}"</edm:dataProvider>
+	<edm:isShownBy rdf:resource="${edm_isShownBy}"/>   
+	<edm:object rdf:resource="${edm_object}"/>
+	<edm:provider>${edm_provider}</edm:provider>
+    <edm:rights rdf:resource="${edm_rights}"/>
+  </ore:Aggregation>
+</rdf:RDF>

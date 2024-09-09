@@ -1,0 +1,93 @@
+# Blender 4.0.2 MTL File: 'Vlooienburg_19th_c_CREATE_bereinigt.blend'
+# www.blender.org
+
+newmtl baksteen_donker_reddish_to_grey
+Ns 5.971072
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/17th_c_red_english_bond_grey_to_reddish_brown_Base_Color.jpg
+
+newmtl baksteen_oiled
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/old_brick_oiled_one_layer_Base_Color.jpg
+map_Ns textures/old_brick_oiled_one_layer_Roughness.jpg
+
+newmtl dakpannen_oud_rood
+Ns 3.480102
+Ka 1.000000 1.000000 1.000000
+Ks 0.336364 0.336364 0.336364
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/TexturesCom_RooftilesCeramic0021_1_seamless_S_red_pimped.jpg
+
+newmtl grey_plaster
+Ns 18.595039
+Ka 1.000000 1.000000 1.000000
+Kd 0.486815 0.461606 0.390621
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl grey_stone
+Ns 13.741671
+Ka 1.000000 1.000000 1.000000
+Kd 0.190138 0.190138 0.190138
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl houtwerk_wit_19th_c
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/rough_wood_COLOR_painted.jpg
+map_Ns textures/rough_wood_ROUGH.jpg
+map_Bump -bm 1.000000 textures/rough_wood_NRM_y_up.jpg
+
+newmtl raamstijlen_donker_19th_c
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.016150 0.005180 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl vensterglas_19th_c
+Ns 793.718994
+Ka 1.000000 1.000000 1.000000
+Kd 0.602997 0.515004 0.530973
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 0.446809
+illum 9
+
+newmtl voordeur_donker_photo_texture
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd textures/voordeurenkel.jpg

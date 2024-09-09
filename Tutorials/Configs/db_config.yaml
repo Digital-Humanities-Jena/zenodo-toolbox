@@ -1,0 +1,151 @@
+use_local_db: true
+local_db_path: "Tutorials/sandbox.db"
+
+use_remote_db: false
+remote_db_type: "sqlite"
+remote_db_host: "example.com"
+remote_db_port: 3306
+remote_db_name: "your_database_name"
+remote_db_user: "your_username"
+remote_db_password: "your_password"
+
+use_ssh_tunnel: false
+ssh_host: "ssh.example.com"
+ssh_port: 22
+ssh_user: "ssh_username"
+ssh_private_key_path: "/path/to/your/private/key"
+ssh_password: ""  # Use this if not using a private key
+
+max_connections: 5
+connection_timeout: 30
+
+enable_foreign_keys: true
+journal_mode: "WAL"
+
+
+db_structures:
+  journal_mode: WAL
+  tables:
+    - records:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL UNIQUE
+        concept_doi: TEXT
+        type: TEXT
+        title: TEXT NOT NULL
+        subset: TEXT
+        recid: TEXT NOT NULL
+        doi: TEXT
+        version: TEXT
+        access_right: TEXT
+        license: TEXT
+        owner_id: TEXT
+        all_recids: TEXT
+        changelogs: JSON
+        modified: DATETIME
+        created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      indexes:
+        - concept_recid
+        - recid
+        - doi
+        - title
+
+    - links:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL UNIQUE
+        recid: TEXT NOT NULL
+        self: TEXT
+        html: TEXT
+        doi: TEXT
+        concept_doi: TEXT
+        files: TEXT
+        bucket: TEXT
+        publish: TEXT
+        edit: TEXT
+        discard: TEXT
+        new_version: TEXT
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      foreign_keys:
+        - concept_recid: records(concept_recid)
+      indexes:
+        - concept_recid
+        - recid
+
+    - mainfiles:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL
+        recid: TEXT NOT NULL
+        filetype: TEXT
+        filename: TEXT NOT NULL
+        direct_link: TEXT
+        file_source: TEXT
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      foreign_keys:
+        - concept_recid: records(concept_recid)
+      indexes:
+        - concept_recid
+        - recid
+        - filename
+      unique_constraints:
+        - columns: [concept_recid, filename]
+
+    - states:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL UNIQUE
+        recid: TEXT NOT NULL
+        thumbnails_available: BOOLEAN
+        edm_available: BOOLEAN
+        metsmods_available: BOOLEAN
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      foreign_keys:
+        - concept_recid: records(concept_recid)
+      indexes:
+        - concept_recid
+        - recid
+
+    - thumbnails:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL UNIQUE
+        recid: TEXT NOT NULL
+        perspective: TEXT
+        res_1000x1000: TEXT
+        res_512x512: TEXT
+        res_256x256: TEXT
+        res_128x128: TEXT
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      foreign_keys:
+        - concept_recid: records(concept_recid)
+      indexes:
+        - concept_recid
+        - recid
+
+    - responses:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL UNIQUE
+        recid: TEXT NOT NULL
+        data: JSON
+        updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      foreign_keys:
+        - concept_recid: records(concept_recid)
+      indexes:
+        - concept_recid
+        - recid
+
+    - rate_limiter:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        timestamp: REAL NOT NULL
+      indexes:
+        - timestamp
+
+    - operations:
+        id: INTEGER PRIMARY KEY AUTOINCREMENT
+        concept_recid: TEXT NOT NULL
+        recid: TEXT NOT NULL
+        doi: TEXT
+        operation: TEXT
+        status: TEXT
+        links: JSON
+        files: JSON
+        initiated: TIMESTAMP
+        modified: TIMESTAMP
+        

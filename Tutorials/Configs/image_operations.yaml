@@ -1,0 +1,74 @@
+project_title: &projectTitle "Image Operations Test"
+short_title: &shortTitle "img-ops-test"
+
+
+paths:
+  output:
+    jsons: "Tutorials/Output/*projectTitle/*shortTitle_{now}.json"
+    resized_images: "Tutorials/Output/*projectTitle/Images/Resized"
+
+
+settings:
+  add_image_metadata_to_description: true
+  add_exif_to_description: true
+
+  upload_metadata_json: false
+  upload_exif_json_separately: true
+  upload_resized_image: true
+  upload_resized_image_only: true
+
+  image_resize:
+    active: true
+    ratio: 1.0
+    use_ratio: false
+    max_dimension_value: 256
+
+
+person_masker:
+  active: false
+  bbox_model: "Models/yolov10x.pt"
+  bbox_device: "cpu" # cpu | cuda
+  segmentation_model: "Models/sam2_t.pt"
+  segmentation_device: "cpu"
+  threshold: 0.1
+  max_files: -1 # set -1 to process all files
+
+  blur_blackwhite: False # if False, B/W-Images will not be affected
+  write_bbox_images: true
+  write_segmented_images: true
+  delete_bbox_after_upload: true
+  delete_segmented_after_upload: false
+
+  paths:
+    input_images: "Tutorials/Input/*projectTitle/Images"
+    bbox_images: "Tutorials/Output/*projectTitle/Images/TMP/bboxes"
+    segmented_images: "Tutorials/Output/*projectTitle/Images/TMP/segmented"
+    masked_images: "Tutorials/Output/*projectTitle/Images/persons_masked"
+    processing_log: "Tutorials/Output/*projectTitle/Logs/persons_masked"
+
+  process_extensions:
+    - '.png'
+    - '.jpg'
+    - '.jpeg'
+    - '.bmp'
+    - '.gif'
+    - '.tif'
+    - '.tiff'
+
+
+thumbnail_settings:
+  add_thumbnails_table: true
+  
+  perspective_tags:
+    - perspective_1
+    - perspective_2
+    - perspective_3
+    - perspective_4
+    - perspective_top
+
+  resolutions:
+    - 1000x1000
+    - 512x512
+    - 256x256
+    - 128x128
+
