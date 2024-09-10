@@ -112,8 +112,9 @@ def create_record(
     url = f"{ZENODO_BASE_URL}/api/deposit/depositions"
 
     try:
-        # rate_limiter_zenodo.wait_for_rate_limit()
+        rate_limiter_zenodo.wait_for_rate_limit()
         r = requests.post(url, params=PARAMS, json=zenodo_metadata)
+        rate_limiter_zenodo.record_request()
 
         if r.status_code == 201:
             return_data = r.json()
@@ -158,16 +159,26 @@ def delete_files_in_draft(filedata: List[Dict[str, Any]]) -> Tuple[Dict[str, Uni
     return_data = {}
 
     for data in filedata:
+        # --- old API ---
+        # deposition_id = data["deposition_id"]
+        # file_crumb = data["links"]["self"].split("files/")[1].split("/")[0]
+        # delete_file_link = f"{ZENODO_BASE_URL}/api/deposit/depositions/{deposition_id}/files/{file_crumb}"
+        # --- --- ---
         rate_limiter_zenodo.wait_for_rate_limit()
         r_deletefile = requests.delete(
             data["links"]["self"],
             params=PARAMS,
         )
+        rate_limiter_zenodo.record_request()
         if r_deletefile.status_code == 204:
             return_msg = {"success": True, "response": 204, "text": r_deletefile.text}
         else:
-            return_msg = {"success": False, "response": r_deletefile.status_code, "text": r_deletefile.text}
-            return return_msg, return_data
+            # Sometimes, Zenodo returns a 500. This may or may not delete the file. Handle return_msg.
+            if r_deletefile.status_code == 500:
+                return_msg = {"success": True, "response": 500, "text": r_deletefile.text}
+            else:
+                return_msg = {"success": False, "response": r_deletefile.status_code, "text": r_deletefile.text}
+                return return_msg, return_data
 
     return return_msg, return_data
 
@@ -200,6 +211,7 @@ def delete_file_in_deposition(
                 existing_file_link,
                 params=PARAMS,
             )
+            rate_limiter_zenodo.record_request()
             if r_deletefile.status_code == 204:
                 return_msg = {"success": True, "response": 204, "text": r_deletefile.text}
             else:
@@ -357,6 +369,7 @@ def publish_record(
     publish_link = record_data["links"]["publish"]
     rate_limiter_zenodo.wait_for_rate_limit()
     r_publish = requests.post(publish_link, params=PARAMS)
+    rate_limiter_zenodo.record_request()
     if r_publish.status_code not in [200, 201, 202, 204]:
         if r_publish.status_code == 504:
             return_msg["response"] = 504
@@ -464,6 +477,7 @@ def update_metadata(
 
     rate_limiter_zenodo.wait_for_rate_limit()
     r_newmetadata = requests.put(record_data["links"]["latest_draft"], json=new_metadata, params=PARAMS)
+    rate_limiter_zenodo.record_request()
     return_msg.update({"response": r_newmetadata.status_code, "text": r_newmetadata.text})
     if r_newmetadata.status_code not in [200, 201, 202]:
         return_msg["success"] = False
@@ -744,7 +758,10 @@ def upload_files_into_deposition(
 
     uploaded_files_data = []
 
-    files_deposit_url = f'{record_data["links"]["files"]}?access_token={ZENODO_API_KEY}'
+    files_deposit_url = f'{record_data["links"]["files"]}?access_token={ZENODO_API_KEY}'  # deprecated
+
+    record_id = record_data["id"]
+    bucket_url = record_data["links"]["bucket"]
 
     combined_file_data = []  # includes source of file in objects
 
@@ -755,22 +772,30 @@ def upload_files_into_deposition(
             return_msg = {"success": False, "response": 404, "text": "File is missing. Skipped!"}
             return return_msg, return_data
 
-        upload_data = {"name": filepath.name}
-        files = {"file": open(filepath, "rb")}
+        filename = str(filepath.name)
+        direct_link = f"{ZENODO_BASE_URL}/api/records/{record_id}/files/{filename}/content"
 
         if replace_existing:
-            delete_msg, delete_data = delete_file_in_deposition(record_data=record_data, filename=filepath.name)
+            delete_msg, delete_data = delete_file_in_deposition(record_data=record_data, filename=filename)
             if not delete_msg["success"]:
-                print(f"Could not delete existing File {filepath.name} in ConceptRecID {record_data['conceptrecid']}")
+                print(f"Could not delete existing File {filename} in ConceptRecID {record_data['conceptrecid']}")
                 return delete_msg, delete_data
             elif delete_msg["success"]:
                 if delete_msg["response"] == 204:
-                    print(f"Replaced existing File {filepath.name}")
+                    print(f"Replaced existing File {filename}")
                 if delete_msg["response"] == 200:
-                    print(f"Uploading File {filepath.name} ...")
+                    print(f"Uploading File {filename} ...")
 
+        # --- deprecated: ---
+        # upload_data = {"name": filepath.name}
+        # files = {"file": open(filepath, "rb")}
+        # r_fileupload = requests.post(files_deposit_url, data=upload_data, files=files) # deprecated
+        # --- --- ---
         rate_limiter_zenodo.wait_for_rate_limit()
-        r_fileupload = requests.post(files_deposit_url, data=upload_data, files=files)
+        with open(filepath, "rb") as file:
+            r_fileupload = requests.put(f"{bucket_url}/{filename}", data=file, params=PARAMS)
+        rate_limiter_zenodo.record_request()
+
         if r_fileupload.status_code not in [200, 201, 202, 204]:
             if r_fileupload.status_code == 504:
                 return_msg["response"] = 504
@@ -778,10 +803,10 @@ def upload_files_into_deposition(
                 return_data = record_data
                 uploaded_files_data.append(
                     {
-                        "filename": filepath.name,
-                        "links": {
-                            "download": f"{ZENODO_BASE_URL}/api/records/{record_data['id']}/files/{filepath.name}/content"
-                        },
+                        "deposition_id": str(record_data["id"]),
+                        "filename": filename,
+                        "filesource": Path(filepath_str).resolve().__str__(),
+                        "links": {"download": direct_link},
                     }
                 )
                 continue
@@ -810,7 +835,15 @@ def upload_files_into_deposition(
         else:
             return_msg = {"success": True, "response": r_fileupload.status_code, "text": r_fileupload.text}
             data = r_fileupload.json()
-            data["links"]["download"] = data["links"]["download"].replace("/draft", "")
+            if not "links" in data:
+                data["links"] = {"download": direct_link}
+            else:
+                data["links"].update({"download": direct_link})
+            # --- deprecated ---
+            # data["links"]["download"] = data["links"]["download"].replace("/draft", "")
+            # --- --- ---
+            data["deposition_id"] = str(record_data["id"])
+            data["filename"] = filename
             data["file_source"] = Path(filepath_str).resolve().__str__()
             uploaded_files_data.append(data)
 

@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import time
 import threading
-from typing import Generator
+from typing import Generator, Tuple
 
 logger = logging.getLogger("zenodo-toolbox")
 
@@ -103,36 +103,23 @@ class RateLimiterParallel:
             conn.close()
 
     def wait_for_rate_limit(self) -> None:
-        """Wait until the rate limits are respected before proceeding."""
         while True:
-            with self._get_db_connection() as conn:
-                now = time.time()
+            minute_count, hour_count, earliest_minute, earliest_hour = self._get_counts_and_earliest_timestamp()
+            now = time.time()
 
-                # Check per-minute rate limit
-                minute_ago = now - 60
-                minute_count = conn.execute(
-                    "SELECT COUNT(*) FROM requests WHERE timestamp > ?", (minute_ago,)
-                ).fetchone()[0]
-
-                if minute_count >= self.rate_per_min:
-                    # import_3dmodels_logger.info("(rate-limiter): Per-minute rate limit reached, sleeping for 1 second")
-                    time.sleep(1)
-                    continue
-
-                # Check per-hour rate limit
-                hour_ago = now - 3600
-                hour_count = conn.execute("SELECT COUNT(*) FROM requests WHERE timestamp > ?", (hour_ago,)).fetchone()[
-                    0
-                ]
-
-                if hour_count >= self.rate_per_hour:
-                    # import_3dmodels_logger.info("(rate-limiter): Per-hour rate limit reached, sleeping for 60 seconds")
-                    time.sleep(60)
-                    continue
-
-                # If both limits are respected, break the loop
-                # import_3dmodels_logger.info("(rate-limiter): Rate limits respected, proceeding...")
+            if minute_count >= self.rate_per_min:
+                wait_time = earliest_minute + 60 - now
+            elif hour_count >= self.rate_per_hour:
+                wait_time = earliest_hour + 3600 - now
+            else:
                 break
+
+            if wait_time > 0:
+                time.sleep(wait_time)
+            else:
+                # If wait_time is negative, it means the window has passed
+                # but we need to recheck the counts
+                continue
 
     def record_request(self) -> None:
         """Record a new request in the database."""
@@ -147,3 +134,21 @@ class RateLimiterParallel:
             hour_ago = time.time() - 3600
             conn.execute("DELETE FROM requests WHERE timestamp <= ?", (hour_ago,))
             conn.commit()
+
+    def _get_counts_and_earliest_timestamp(self) -> Tuple[int, int, float, float]:
+        """
+        Get current request counts and earliest timestamp for both minute and hour windows.
+        """
+        with self._get_db_connection() as conn:
+            now = time.time()
+            minute_ago = now - 60
+            hour_ago = now - 3600
+
+            minute_data = conn.execute(
+                "SELECT COUNT(*), MIN(timestamp) FROM requests WHERE timestamp > ?", (minute_ago,)
+            ).fetchone()
+            hour_data = conn.execute(
+                "SELECT COUNT(*), MIN(timestamp) FROM requests WHERE timestamp > ?", (hour_ago,)
+            ).fetchone()
+
+            return (minute_data[0], hour_data[0], minute_data[1] or now, hour_data[1] or now)

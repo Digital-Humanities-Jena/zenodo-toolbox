@@ -473,6 +473,8 @@ def render_model_thumbnails(
     camera_distance_factor: float = 2.0,
     resize: bool = False,
     resize_dimensions: List[int] = [512, 256, 128],
+    material_ior: float = 1.45,
+    material_specular: float = 0.5,
 ) -> None:
     """
     Renders thumbnails of a 3D model from multiple perspectives.
@@ -493,6 +495,7 @@ def render_model_thumbnails(
         camera_distance_factor: Factor to determine camera distance.
         resize: Whether to resize the rendered images.
         resize_dimensions: Dimensions for resizing.
+        specular_ior: Specular IOR (Index of Refraction) for materials. Default is 1.45.
 
     Returns:
         None
@@ -510,6 +513,9 @@ def render_model_thumbnails(
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(model_path))
     obj = bpy.context.selected_objects[0]
+
+    # Set the Specular IOR for all materials
+    set_material_properties(ior=material_ior, specular=material_specular)
 
     bbox = obj.bound_box
     bbox_center = sum((obj.matrix_world @ Vector(b) for b in bbox), Vector()) / 8
@@ -543,3 +549,25 @@ def render_model_thumbnails(
             resize_image(output_path, resize_dimensions)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
+
+
+def set_material_properties(ior: float = 1.45, specular: float = 0.5) -> None:
+    """
+    Sets the IOR and Specular properties for all materials in the scene.
+
+    Args:
+        ior (float): The IOR value to set. Default is 1.45.
+        specular (float): The Specular value to set. Default is 0.5.
+
+    Returns:
+        None
+    """
+    for material in bpy.data.materials:
+        if material.use_nodes:
+            principled_bsdf = next((node for node in material.node_tree.nodes if node.type == "BSDF_PRINCIPLED"), None)
+            if principled_bsdf:
+                if "IOR" in principled_bsdf.inputs:
+                    principled_bsdf.inputs["IOR"].default_value = ior
+                if "Specular" in principled_bsdf.inputs:
+                    principled_bsdf.inputs["Specular"].default_value = specular
+                print(f"Set properties for material {material.name}: IOR={ior}, Specular={specular}")

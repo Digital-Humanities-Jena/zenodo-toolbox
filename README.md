@@ -8,6 +8,8 @@
 
 Zenodo Toolbox is a comprehensive set of tools designed to facilitate interaction with Zenodo, a general-purpose open-access repository developed under the European OpenAIRE program and operated by CERN. This toolbox provides a range of functionalities for creating, managing, and publishing records on Zenodo, as well as performing various data processing operations.
 
+**Warning: Please be advised that this repository is still undergoing development. It is intended that a stable version will be released, but the date or timeframe is not yet determined.**
+
 ## Features
 
 - Zenodo record creation and management
@@ -151,6 +153,7 @@ Each tutorial is designed to cover specific aspects of the Zenodo Toolbox, provi
 <li>Database Access Interface w/ Query & Export Options</li>
 <li>Advanced Logging Functionalities</li>
 <li>Updates for the Database Tutorial regarding external DBs & Export Functions</li>
+<li>Audio Tools (ASR w/ Timestamps, Noise Reduction, Metadata Extraction, Conversion)</li>
 </ul></ul>
 
 ## Advanced Features
