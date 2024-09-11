@@ -5,6 +5,7 @@
 zenodo_tools.sqlite
 
 __pycache__
+Configs
 Input
 Models
 Output
@@ -12,6 +13,7 @@ Output
 Tutorials/3DModels/test_model.glb
 Tutorials/3DModels/*_perspective*
 Tutorials/Output
+Tutorials/Specific
 Tutorials/XMLs/mapped_edm.xml
 Tutorials/XMLs/mapped_metsmods.xml
 Tutorials/sandbox.db

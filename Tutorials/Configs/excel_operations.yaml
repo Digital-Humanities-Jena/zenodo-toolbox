@@ -51,6 +51,7 @@ zenodo_metadata:
 
 
 title_constructor:
+  commands: null
   separator: "-"
   pos_0: "filename"
   pos_1: "description"

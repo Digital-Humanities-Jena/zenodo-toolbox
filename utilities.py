@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from ftfy import fix_encoding
+import hashlib
 from html import unescape
 import io
 import json
@@ -235,6 +236,44 @@ def append_to_json(data: Any, filename: str) -> None:
             json.dump([data], file, indent=4)
 
 
+def check_image_size_consistency(directory: str, reference_max_px: int) -> Tuple[Dict[str, int], Dict[str, int]]:
+    """
+    Checks the consistency of image sizes in a directory against a reference maximum pixel size.
+
+    Args:
+        directory (str): Path to the directory containing the images.
+        reference_max_px (int): The reference maximum pixel size to compare against.
+
+    Returns:
+        Tuple[Dict[str, int], Dict[str, int]]:
+            - A dictionary of convergent images (filename: max pixel size)
+            - A dictionary of divergent images (filename: max pixel size)
+    """
+    convergent_images = {}
+    divergent_images = {}
+
+    # Supported image file extensions
+    image_extensions = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff")
+
+    for filename in os.listdir(directory):
+        if filename.lower().endswith(image_extensions):
+            file_path = os.path.join(directory, filename)
+            try:
+                with Image.open(file_path) as img:
+                    width, height = img.size
+                    max_dimension = max(width, height)
+
+                    if max_dimension == reference_max_px:
+                        convergent_images[filename] = max_dimension
+                    else:
+                        divergent_images[filename] = max_dimension
+
+            except Exception as e:
+                print(f"Error processing {filename}: {e}")
+
+    return convergent_images, divergent_images
+
+
 def clean_description(description: str) -> str:
     description = remove_tables_by_soup(description)
     # description = remove_table_headers(description)
@@ -247,6 +286,30 @@ def clean_string(input_str: str) -> str:
         return corrected_str
     else:
         return str(input_str)
+
+
+def config_report(config_path, config):
+    print(f"Configuration loaded: {config_path}\n\nColumn Mapping: ")
+    printJSON(config["column_mapping"])
+
+    print("\nZenodo Metadata Mapping:")
+    printJSON(config["zenodo_metadata"])
+
+    print("\nTitle Constructor:")
+    printJSON(config["title_constructor"])
+
+    print("\nDescription Constructor:")
+    printJSON(config["description_constructor"])
+
+    print(
+        f'\nAdd Filetables / Metadata / EXIF to Description: {config["settings"]["add_filetables_to_description"]} / {config["settings"]["add_image_metadata_to_description"]} / {config["settings"]["add_exif_to_description"]}'
+    )
+    print(
+        f'\nSplit Authors / Description / Keywords: {config["settings"]["split_authors"]} / {config["settings"]["split_description"]} / {config["settings"]["split_keywords"]}'
+    )
+
+    print(f'\nGeolocator active: {config["settings"]["retrieve_coordinates"]}')
+    print(f'\nImage Resize active: {config["settings"]["image_resize"]["active"]}')
 
 
 def construct_zenodo_data(received_data: Dict[str, Any], uploaded_file_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -505,6 +568,60 @@ def extract_url_from_anchor(description: str) -> Optional[str]:
         return None
 
 
+def find_files_by_identifier(
+    directory: Union[str, Path],
+    reference_filename: Optional[str] = None,
+    identifier_pattern: Optional[str] = None,
+    identifier: Optional[str] = None,
+    extensions: Optional[List[str]] = None,
+) -> List[Path]:
+    """
+    Finds files in the given directory based on an identifier extracted from a reference filename,
+    a provided identifier, or a pattern.
+
+    Args:
+        directory (Union[str, Path]): The directory to search in.
+        reference_filename (Optional[str]): A reference filename to extract the identifier from.
+        identifier_pattern (Optional[str]): A regex pattern to extract the identifier from the reference filename.
+        identifier (Optional[str]): A specific identifier to search for.
+        extensions (Optional[List[str]]): A list of file extensions to consider. If None, all files are considered.
+
+    Returns:
+        List[Path]: A list of file paths matching the identifier.
+
+    Raises:
+        ValueError: If neither reference_filename, identifier_pattern, nor identifier is provided.
+    """
+    directory_path = Path(directory)
+
+    # Determine the identifier
+    if identifier:
+        search_identifier = identifier
+    elif reference_filename and identifier_pattern:
+        match = re.search(identifier_pattern, reference_filename)
+        if match:
+            search_identifier = match.group()
+        else:
+            raise ValueError(
+                f"Could not extract identifier from {reference_filename} using pattern {identifier_pattern}"
+            )
+    else:
+        raise ValueError("Either identifier or both reference_filename and identifier_pattern must be provided")
+
+    # Prepare the glob pattern
+    if extensions:
+        patterns = [f"{search_identifier}*{ext}" for ext in extensions]
+    else:
+        patterns = [f"{search_identifier}*"]
+
+    # Find matching files
+    matching_files = []
+    for pattern in patterns:
+        matching_files.extend(directory_path.glob(pattern))
+
+    return sorted(matching_files)
+
+
 def get_base_dir() -> Union[str, bytes]:
     """
     Determines the base directory for the application.
@@ -550,6 +667,51 @@ def get_changelog_from_description(description: str) -> str:
 
     changelog = description[changelog_start:]
     return changelog.strip()
+
+
+def get_file_hash(filepath: Union[str, Path]) -> str:
+    """
+    Calculates the MD5 hash of a file efficiently.
+
+    This function uses a memory-efficient approach to hash files,
+    suitable for both small and large files.
+
+    Args:
+        filepath (Union[str, Path]): The path to the file to be hashed.
+
+    Returns:
+        [0] str: The hexadecimal representation of the MD5 hash of the file.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        PermissionError: If the user doesn't have read permissions for the file.
+        IOError: If there's an error reading the file.
+    """
+    hash_md5 = hashlib.md5()
+    filepath = Path(filepath)  # Convert to Path object for consistency
+
+    if not filepath.exists():
+        raise FileNotFoundError(f"The file {filepath} does not exist.")
+
+    if not filepath.is_file():
+        raise ValueError(f"{filepath} is not a file.")
+
+    if not os.access(filepath, os.R_OK):
+        raise PermissionError(f"Read permission denied for file {filepath}.")
+
+    buffer_size = 65536  # 64kb chunks
+
+    try:
+        with filepath.open("rb") as f:
+            while True:
+                data = f.read(buffer_size)
+                if not data:
+                    break
+                hash_md5.update(data)
+    except IOError as e:
+        raise IOError(f"Error reading file {filepath}: {e}") from e
+
+    return hash_md5.hexdigest()
 
 
 def get_filetype(filepath: Union[str, Path]) -> Literal["image", "audio", "video", "json", "document", "other"]:
@@ -1312,6 +1474,41 @@ def remove_url_segment_from_csv(csv_path: Path, column_name: str) -> None:
     df.to_csv(csv_path, index=False)
 
 
+def rename_by_max_pixel(directory: str, images_px_data: Dict[str, int]) -> bool:
+    """
+    Renames image files in the specified directory by adding their max pixel size as a suffix.
+
+    Args:
+        directory (str): Path to the directory containing the images.
+        images_px_data (Dict[str, int]): Dictionary of image filenames and their max pixel sizes.
+
+    Returns:
+        bool: True if all renaming operations were successful, False otherwise.
+    """
+    success = True
+    directory_path = Path(directory)
+
+    for filename, max_px in images_px_data.items():
+        old_path = directory_path / filename
+
+        # Construct new filename
+        name_parts = old_path.stem.split("_")
+        if name_parts[-1].lower().endswith("px"):
+            # Remove existing px suffix if present
+            name_parts = name_parts[:-1]
+        new_filename = f"{'_'.join(name_parts)}_{max_px}px{old_path.suffix}"
+        new_path = old_path.with_name(new_filename)
+
+        try:
+            old_path.rename(new_path)
+            print(f"Renamed: {filename} -> {new_filename}")
+        except Exception as e:
+            print(f"Error renaming {filename}: {e}")
+            success = False
+
+    return success
+
+
 def resize_image(filepath: Union[str, Path], config: Dict[str, Any]) -> Path:
     """
     Resize an image based on configuration settings.
@@ -1375,7 +1572,15 @@ def search_file(
     Returns:
         [0] (Path): The path of the found file, or None if not found.
     """
-    base_filename = Path(filename).stem
+    if filename is None:
+        return None
+
+    try:
+        filename_path = Path(filename)
+    except TypeError:
+        return None  # If filename can't be converted to Path, return None
+
+    base_filename = filename_path.stem if filename_path.stem else filename_path.name
 
     if config:
         search_dir = Path(config["paths"]["input"]["images"])
