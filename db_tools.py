@@ -97,21 +97,8 @@ def clear_operations_by_status(
 
 
 def create_db(custom_cfg: Dict[str, Any] = {}) -> Union[sqlite3.Connection, None]:
-    """
-    Creates a SQLite database based on the provided configuration.
-
-    Args:
-        custom_cfg: Custom configuration dictionary to override default settings.
-
-    Returns:
-        [0] SQLite connection object if the database is successfully created.
-        [1] None if an error occurs or local database usage is disabled.
-
-    Raises:
-        sqlite3.Error: If there's an error while creating the database.
-    """
     db_config = custom_cfg if custom_cfg else db_config
-    if db_config["use_local_db"]:
+    if db_config.get("use_local_db", False):
         local_db_path = Path(db_config["local_db_path"])
         local_db_path.parent.mkdir(parents=True, exist_ok=True)
         logger.info(f"Creating Local SQLite Database ...")
@@ -122,45 +109,69 @@ def create_db(custom_cfg: Dict[str, Any] = {}) -> Union[sqlite3.Connection, None
 
             with closing(conn.cursor()) as cursor:
                 for table in db_config["db_structures"]["tables"]:
-                    table_name = list(table.keys())[0]
-                    columns = table[table_name]
+                    table_name = table["name"]
+                    columns = table["columns"]
+                    constraints = []
 
-                    create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} (\n"
-                    create_table_sql += ",\n".join(
-                        [f"{col_name} {col_type}" for col_name, col_type in columns.items()]
-                    )
+                    # Build column definitions
+                    column_defs = []
+                    for col_name, col_def in columns.items():
+                        if isinstance(col_def, dict):
+                            col_type = col_def["type"]
+                            if "check" in col_def:
+                                check_values = ", ".join(f"'{v}'" for v in col_def["check"])
+                                col_type += f" CHECK ({col_name} IN ({check_values}))"
+                            column_defs.append(f"{col_name} {col_type}")
+                        else:
+                            column_defs.append(f"{col_name} {col_def}")
 
+                    # Handle primary keys
+                    if "primary_key" in table:
+                        pk_cols = table["primary_key"]
+                        constraints.append(f"PRIMARY KEY ({', '.join(pk_cols)})")
+
+                    # Handle foreign keys
                     if "foreign_keys" in table:
                         for fk in table["foreign_keys"]:
-                            for fk_col, reference in fk.items():
-                                create_table_sql += f",\nFOREIGN KEY ({fk_col}) REFERENCES {reference}"
+                            fk_cols = ", ".join(fk["columns"])
+                            ref_table = fk["references"]["table"]
+                            ref_cols = ", ".join(fk["references"]["columns"])
+                            fk_def = f"FOREIGN KEY ({fk_cols}) REFERENCES {ref_table}({ref_cols})"
+                            constraints.append(fk_def)
 
-                    create_table_sql += "\n)"
+                    # Handle additional constraints (new addition)
+                    if "constraints" in table:
+                        constraints.extend(table["constraints"])
+
+                    # Combine column definitions and constraints
+                    create_table_sql = f"CREATE TABLE IF NOT EXISTS {table_name} (\n"
+                    create_table_sql += ",\n".join(column_defs)
+                    if constraints:
+                        create_table_sql += ",\n" + ",\n".join(constraints)
+                    create_table_sql += "\n);"
 
                     cursor.execute(create_table_sql)
 
+                    # Create indexes
                     if "indexes" in table:
                         for index_col in table["indexes"]:
                             index_name = f"idx_{table_name}_{index_col}"
                             cursor.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}({index_col})")
 
+                    # Create triggers for updated_at
                     if "updated_at" in columns:
+                        pk_cols = table.get("primary_key", ["id"])
+                        pk_condition = " AND ".join([f"OLD.{col} = NEW.{col}" for col in pk_cols])
                         trigger_sql = f"""
                         CREATE TRIGGER IF NOT EXISTS update_{table_name}_timestamp 
                         AFTER UPDATE ON {table_name}
+                        FOR EACH ROW
                         BEGIN
                             UPDATE {table_name} SET updated_at = CURRENT_TIMESTAMP
-                            WHERE id = NEW.id;
+                            WHERE {pk_condition};
                         END;
                         """
                         cursor.execute(trigger_sql)
-
-                    # Add UNIQUE constraints
-                    if "unique_constraints" in table:
-                        for constraint in table["unique_constraints"]:
-                            add_unique_constraint(cursor, table_name, constraint["columns"])
-                    elif "UNIQUE" in columns.get("concept_recid", ""):
-                        add_unique_constraint(cursor, table_name, ["concept_recid"])
 
             conn.commit()
             logger.info(f"Database created successfully at {local_db_path}")
@@ -216,7 +227,11 @@ def get_row(
             if print_result:
                 # Format the data for tabulate
                 table_data = [[k, v] for k, v in result.items()]
-                print(tabulate(table_data, headers=["Column", "Value"], tablefmt="pretty"))
+                print(
+                    tabulate(
+                        table_data, headers=["Column", "Value"], tablefmt="pretty", numalign="left", stralign="left"
+                    )
+                )
 
             return result
         else:
@@ -240,16 +255,16 @@ def initialize_db(custom_cfg: Dict[str, Union[bool, str]] = {}) -> Union[sqlite3
         custom_cfg: Custom configuration dictionary to override default settings.
 
     Returns:
-        [0] SQLite connection object if successful, None otherwise.
+        SQLite connection object if successful, None otherwise.
 
     Raises:
         sqlite3.Error: If there's an error connecting to the existing database.
     """
     db_config = custom_cfg if custom_cfg else db_config
-    if db_config["use_local_db"]:
+    if db_config.get("use_local_db", False):
         local_db_path = Path(db_config["local_db_path"])
         if not local_db_path.exists():
-            return create_db(custom_cfg)
+            return create_db(custom_cfg=custom_cfg)
         else:
             try:
                 conn = sqlite3.connect(str(local_db_path))
@@ -298,7 +313,7 @@ def print_table(connection: sqlite3.Connection, table: str, concept_recid: Union
         column_names = [description[0] for description in cursor.description]
 
         # Use tabulate to create a formatted table
-        table_output = tabulate(rows, headers=column_names, tablefmt="pretty")
+        table_output = tabulate(rows, headers=column_names, tablefmt="pretty", numalign="left", stralign="left")
         print(table_output)
 
     except sqlite3.Error as e:
@@ -361,7 +376,15 @@ def set_row(
                 print(f"Successfully updated row in table '{table}' where {where_column} = {where_value}")
                 # Format the data for tabulate
                 table_data = [[k, v] for k, v in valid_data.items()]
-                print(tabulate(table_data, headers=["Column", "New Value"], tablefmt="pretty"))
+                print(
+                    tabulate(
+                        table_data,
+                        headers=["Column", "New Value"],
+                        tablefmt="pretty",
+                        numalign="left",
+                        stralign="left",
+                    )
+                )
             return True
         else:
             if print_result:
@@ -518,99 +541,6 @@ def sql_update(table: str, values: Dict[str, Any], condition: str, targets: List
     return r_update.json()
 
 
-def upsert_data(
-    connection: sqlite3.Connection,
-    table_name: str,
-    data: Dict[str, Any],
-    primary_key: str,
-    primary_key_value: Union[str, int],
-) -> bool:
-    """
-    Upserts data into a SQLite table, handling JSON, DATETIME, and BOOLEAN types.
-
-    Args:
-        connection: SQLite database connection.
-        table_name: Name of the target table.
-        data: Dictionary containing column-value pairs to upsert.
-        primary_key: Name of the primary key column.
-        primary_key_value: Value of the primary key for the record.
-
-    Returns:
-        True if the upsert operation was successful, False otherwise.
-    """
-    try:
-        cursor = connection.cursor()
-
-        # Get the column names and types from the table
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        table_info = cursor.fetchall()
-        columns = {col[1]: col[2] for col in table_info}
-
-        # Prepare the data for insertion/update
-        prepared_data = {}
-        for key, value in data.items():
-            if key in columns:
-                if columns[key].startswith("JSON"):
-                    prepared_data[key] = json.dumps(value, ensure_ascii=False)
-                elif columns[key].startswith("DATETIME"):
-                    if isinstance(value, str):
-                        prepared_data[key] = datetime.fromisoformat(value.replace("Z", "+00:00"))
-                    elif isinstance(value, datetime):
-                        prepared_data[key] = value
-                elif columns[key].startswith("BOOLEAN"):
-                    prepared_data[key] = 1 if value else 0
-                else:
-                    prepared_data[key] = value
-
-        # Ensure the primary key is in the prepared data
-        prepared_data[primary_key] = primary_key_value
-
-        # Start a transaction
-        connection.execute("BEGIN TRANSACTION")
-
-        try:
-            # Attempt to insert the record
-            columns_clause = ", ".join(prepared_data.keys())
-            placeholders = ", ".join(["?" for _ in prepared_data])
-            cursor.execute(
-                f"""
-                INSERT INTO {table_name} 
-                ({columns_clause})
-                VALUES ({placeholders})
-                """,
-                list(prepared_data.values()),
-            )
-        except sqlite3.IntegrityError:
-            # If insert fails, attempt to update
-            set_clause = ", ".join([f"{k} = ?" for k in prepared_data.keys() if k != primary_key])
-            values = [v for k, v in prepared_data.items() if k != primary_key]
-            values.append(primary_key_value)
-
-            cursor.execute(
-                f"""
-                UPDATE {table_name}
-                SET {set_clause}
-                WHERE {primary_key} = ?
-                """,
-                values,
-            )
-
-        connection.commit()
-        logger.debug(f"Data upserted successfully into table {table_name}.")
-        return True
-
-    except sqlite3.Error as e:
-        connection.rollback()
-        logger.critical(f"Database error: {e}")
-        logger.critical(f"DB Upsert Operation failed! Performing Rollback...")
-        return False
-    except Exception as e:
-        connection.rollback()
-        logger.critical(f"Error in upsert_data: {e}")
-        logger.critical(f"DB Upsert Operation failed! Performing Rollback...")
-        return False
-
-
 def upsert_operation(
     connection: sqlite3.Connection,
     operation_type: str,
@@ -628,6 +558,10 @@ def upsert_operation(
 
     Returns:
         True if the upsert operation was successful, False otherwise.
+
+    Note:
+        There's no foreign key constraint to the 'records' table,
+        allowing operations to be recorded before the corresponding record exists.
     """
     try:
         cursor = connection.cursor()
@@ -728,12 +662,16 @@ def upsert_published_data(
     try:
         current_timestamp = datetime.now().isoformat()
         cursor = connection.cursor()
+        # Start a transaction
+        cursor.execute("BEGIN TRANSACTION")
+
         data = zenodo_response_data
 
-        concept_recid = data["conceptrecid"]
-        concept_doi = data["conceptdoi"]
-        recid = data["id"]
+        concept_recid = int(data["conceptrecid"])
+        recid = int(data["id"])
+
         title = data["title"]
+        concept_doi = data["conceptdoi"]
         doi = data["doi"]
         version = data["metadata"]["version"]
         access_right = data["metadata"]["access_right"]
@@ -764,10 +702,10 @@ def upsert_published_data(
         # -- Table: records --
         cursor.execute(
             """
-            INSERT INTO records (concept_recid, concept_doi, type, title, subset, recid, doi, version, 
-                                 access_right, license, owner_id, all_recids, changelogs, modified)
+            INSERT INTO records (concept_recid, concept_doi, type, title, subset, recid, doi, version,
+                                    access_right, license, owner_id, all_recids, changelogs, modified)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(concept_recid) DO UPDATE SET
+            ON CONFLICT(concept_recid, recid) DO UPDATE SET
                 concept_doi = excluded.concept_doi,
                 type = excluded.type,
                 title = excluded.title,
@@ -781,7 +719,7 @@ def upsert_published_data(
                 all_recids = excluded.all_recids,
                 changelogs = excluded.changelogs,
                 modified = excluded.modified
-            """,
+        """,
             (
                 concept_recid,
                 concept_doi,
@@ -800,17 +738,18 @@ def upsert_published_data(
             ),
         )
 
+        if cursor.rowcount == 0:
+            raise Exception("Failed to insert/update records table")
+
         # -- Table: links --
         cursor.execute(
             """
-            INSERT INTO links (concept_recid, recid, self, html, doi, concept_doi, files, bucket, publish, edit, discard, new_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(concept_recid) DO UPDATE SET
-                recid = excluded.recid,
+            INSERT INTO links (concept_recid, recid, self, html, doi, files, bucket, publish, edit, discard, new_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(concept_recid, recid) DO UPDATE SET
                 self = excluded.self,
                 html = excluded.html,
                 doi = excluded.doi,
-                concept_doi = excluded.concept_doi,
                 files = excluded.files,
                 bucket = excluded.bucket,
                 publish = excluded.publish,
@@ -824,7 +763,6 @@ def upsert_published_data(
                 data["links"]["self"],
                 data["links"]["html"],
                 data["links"]["doi"],
-                data["links"]["parent_doi"],
                 data["links"]["files"],
                 data["links"]["bucket"],
                 data["links"]["publish"],
@@ -859,7 +797,7 @@ def upsert_published_data(
             """
             INSERT INTO states (concept_recid, recid, thumbnails_available, edm_available, metsmods_available)
             VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(concept_recid) DO UPDATE SET
+            ON CONFLICT(concept_recid, recid) DO UPDATE SET
                 recid = excluded.recid,
                 thumbnails_available = excluded.thumbnails_available,
                 edm_available = excluded.edm_available,
@@ -879,7 +817,7 @@ def upsert_published_data(
             """
             INSERT INTO thumbnails (concept_recid, recid, perspective, res_1000x1000, res_512x512, res_256x256, res_128x128)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(concept_recid) DO UPDATE SET
+            ON CONFLICT(concept_recid, recid, perspective) DO UPDATE SET
                 recid = excluded.recid,
                 perspective = excluded.perspective,
                 res_1000x1000 = excluded.res_1000x1000,
@@ -903,10 +841,9 @@ def upsert_published_data(
             """
             INSERT INTO responses (concept_recid, recid, data)
             VALUES (?, ?, ?)
-            ON CONFLICT(concept_recid) DO UPDATE SET
-                recid = excluded.recid,
+            ON CONFLICT(concept_recid, recid) DO UPDATE SET
                 data = excluded.data
-            """,
+        """,
             (concept_recid, recid, json.dumps(data, ensure_ascii=False, indent=4)),
         )
 
@@ -915,11 +852,11 @@ def upsert_published_data(
 
     except sqlite3.Error as e:
         logger.critical(f"Database error: {e}")
-        logger.critical(f"DB Upsert Operation failed! Performing Rollback...")
+        logger.critical(f"DB Upsert Published Operation failed! Performing Rollback...")
         connection.rollback()
         return False
     except Exception as e:
         logger.critical(f"Error in upsert_db: {e}")
-        logger.critical(f"DB Upsert Operation failed! Performing Rollback...")
+        logger.critical(f"DB Upsert Published Operation failed! Performing Rollback...")
         connection.rollback()
         return False

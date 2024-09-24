@@ -22,20 +22,26 @@ connection_timeout: 30
 enable_foreign_keys: true
 journal_mode: "WAL"
 
-
 db_structures:
   tables:
-    - records:
+    - name: records
+      columns:
         id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL UNIQUE
+        concept_recid: INTEGER NOT NULL
         concept_doi: TEXT
         type: TEXT
         title: TEXT NOT NULL
         subset: TEXT
-        recid: TEXT NOT NULL
+        recid: INTEGER NOT NULL
         doi: TEXT
         version: TEXT
-        access_right: TEXT
+        access_right: 
+          type: TEXT NOT NULL
+          check: 
+            - open
+            - embargoed
+            - restricted
+            - closed
         license: TEXT
         owner_id: TEXT
         all_recids: TEXT
@@ -43,20 +49,21 @@ db_structures:
         modified: DATETIME
         created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      constraints:
+        - UNIQUE (concept_recid, recid)
       indexes:
         - concept_recid
         - recid
         - doi
         - title
 
-    - links:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL UNIQUE
-        recid: TEXT NOT NULL
+    - name: links
+      columns:
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         self: TEXT
         html: TEXT
         doi: TEXT
-        concept_doi: TEXT
         files: TEXT
         bucket: TEXT
         publish: TEXT
@@ -64,87 +71,142 @@ db_structures:
         discard: TEXT
         new_version: TEXT
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      primary_key:
+        - concept_recid
+        - recid
       foreign_keys:
-        - concept_recid: records(concept_recid)
+        - columns: 
+            - concept_recid
+            - recid
+          references:
+            table: records
+            columns:
+              - concept_recid
+              - recid
       indexes:
         - concept_recid
         - recid
 
-    - mainfiles:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL
-        recid: TEXT NOT NULL
+    - name: mainfiles
+      columns:
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         filetype: TEXT
         filename: TEXT NOT NULL
         direct_link: TEXT
         file_source: TEXT
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      primary_key:
+        - concept_recid
+        - filename
       foreign_keys:
-        - concept_recid: records(concept_recid)
+        - columns: 
+            - concept_recid
+            - recid
+          references:
+            table: records
+            columns:
+              - concept_recid
+              - recid
       indexes:
         - concept_recid
         - recid
         - filename
-      unique_constraints:
-        - columns: [concept_recid, filename]
 
-    - states:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL UNIQUE
-        recid: TEXT NOT NULL
+    - name: states
+      columns:
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         thumbnails_available: BOOLEAN
         edm_available: BOOLEAN
         metsmods_available: BOOLEAN
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      primary_key:
+        - concept_recid
+        - recid
       foreign_keys:
-        - concept_recid: records(concept_recid)
+        - columns: 
+            - concept_recid
+            - recid
+          references:
+            table: records
+            columns:
+              - concept_recid
+              - recid
       indexes:
         - concept_recid
         - recid
 
-    - thumbnails:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL UNIQUE
-        recid: TEXT NOT NULL
+    - name: thumbnails
+      columns:
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         perspective: TEXT
         res_1000x1000: TEXT
         res_512x512: TEXT
         res_256x256: TEXT
         res_128x128: TEXT
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      primary_key:
+        - concept_recid
+        - recid
+        - perspective
       foreign_keys:
-        - concept_recid: records(concept_recid)
+        - columns: 
+            - concept_recid
+            - recid
+          references:
+            table: records
+            columns:
+              - concept_recid
+              - recid
       indexes:
         - concept_recid
         - recid
+        - perspective
 
-    - responses:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL UNIQUE
-        recid: TEXT NOT NULL
+    - name: responses
+      columns:
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         data: JSON
         updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+      primary_key:
+        - concept_recid
+        - recid
       foreign_keys:
-        - concept_recid: records(concept_recid)
+        - columns: 
+            - concept_recid
+            - recid
+          references:
+            table: records
+            columns:
+              - concept_recid
+              - recid
       indexes:
         - concept_recid
         - recid
 
-    - rate_limiter:
-        id: INTEGER PRIMARY KEY AUTOINCREMENT
+    - name: rate_limiter
+      columns:
         timestamp: REAL NOT NULL
+      primary_key:
+        - timestamp
       indexes:
         - timestamp
 
-    - operations:
+    - name: operations
+      columns:
         id: INTEGER PRIMARY KEY AUTOINCREMENT
-        concept_recid: TEXT NOT NULL
-        recid: TEXT NOT NULL
+        concept_recid: INTEGER NOT NULL
+        recid: INTEGER NOT NULL
         doi: TEXT
-        operation: TEXT
-        status: TEXT
+        operation: TEXT NOT NULL
+        status: TEXT NOT NULL
         links: JSON
         files: JSON
-        initiated: TIMESTAMP
-        modified: TIMESTAMP
-        
+        initiated: DATETIME
+        modified: DATETIME
+      indexes:
+        - concept_recid
+        - recid

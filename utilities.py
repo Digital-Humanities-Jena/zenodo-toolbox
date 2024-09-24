@@ -23,6 +23,17 @@ import yaml
 logger = logging.getLogger("zenodo-toolbox")
 
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
+
 def add_filetables_to_description(description: str, files_data: Dict[str, str]) -> str:
     """
     Adds formatted tables for main files and thumbnails to a given description.
@@ -598,7 +609,9 @@ def find_files_by_identifier(
     if identifier:
         search_identifier = identifier
     elif reference_filename and identifier_pattern:
-        match = re.search(identifier_pattern, reference_filename)
+        # Make the pattern case-insensitive by adding (?i) at the start
+        case_insensitive_pattern = f"(?i){identifier_pattern}"
+        match = re.search(case_insensitive_pattern, reference_filename)
         if match:
             search_identifier = match.group()
         else:

@@ -19,7 +19,7 @@ from utilities import (
     update_description,
 )
 
-zenodo_config = load_config("Configs/zenodo.yaml", False)
+zenodo_config = load_config("Tutorials/Configs/zenodo.yaml", False)
 USE_SANDBOX = zenodo_config["main"]["use_sandbox"]
 ZENODO_BASE_URL = "https://sandbox.zenodo.org" if USE_SANDBOX else "https://zenodo.org"
 if zenodo_config["main"]["use_env_api_key"]:
